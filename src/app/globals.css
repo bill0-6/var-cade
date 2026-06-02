@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-athletic: var(--font-bebas-neue), ui-sans-serif, system-ui, sans-serif;
+  
+  --color-neon-purple: #8A2BE2;
+  --color-vibrant-teal: #00E5FF;
+  --color-highlighter-yellow: #FFFF00;
+  --color-pitch-green: #39FF14;
+  --color-dark-bg: #0A0A0A;
+  --color-dark-surface: #171717;
+  --color-dark-border: #262626;
+  --color-red-card: #FF003C;
+}
+
+body {
+  background-color: var(--color-dark-bg);
+  color: #ededed;
+}
