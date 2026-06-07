@@ -85,6 +85,7 @@ export const TEAMS: Team[] = [
   { id: "WAL", name: "Wales", group: "K", flag: "🏴󠁧󠁢󠁷󠁬󠁳󠁿", themeColor: "from-red-600/50 via-dark-bg to-green-800/20" },
   { id: "UKR", name: "Ukraine", group: "L", flag: "🇺🇦", themeColor: "from-yellow-400/50 via-dark-bg to-blue-600/20" },
   { id: "CIV", name: "Côte d'Ivoire", group: "A", flag: "🇨🇮", themeColor: "from-orange-500/50 via-dark-bg to-green-600/20" },
+  { id: "SCO", name: "Scotland", group: "L", flag: "🏴󠁧󠁢󠁳󠁣󠁴󠁿", themeColor: "from-blue-900/50 via-dark-bg to-white/10" },
   { id: "FIFA", name: "Global", group: "ALL", flag: "🌐", themeColor: "from-blue-900/50 via-dark-bg to-white/10" },
 ];
 
