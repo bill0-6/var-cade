@@ -14,7 +14,7 @@ import { Plus, Trophy, Flame } from "lucide-react";
 import { motion } from "framer-motion";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { supabase } from "@/lib/supabaseClient";
-import OnboardingModal from "@/components/OnboardingModal";
+import { useGhostAuth } from "@/hooks/useGhostAuth";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -25,7 +25,7 @@ export default function Home() {
     memeKarma: 0,
     currentPrediction: null,
   });
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [hasVotedToday, setHasVotedToday] = useState(false);
   const [votedMemeIds, setVotedMemeIds] = useState<string[]>([]);
   
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
@@ -39,21 +39,23 @@ export default function Home() {
   const [mobileTab, setMobileTab] = useState<"feed" | "gamify">("feed");
   const isMobile = useMediaQuery("(max-width: 1024px)");
 
+  const { handle: ghostHandle, isReady } = useGhostAuth();
+
   // Initial Data Load & Realtime Subscriptions
   useEffect(() => {
     setMounted(true);
+    if (!isReady) return;
 
-    const savedHandle = localStorage.getItem("var_cade_handle");
     const savedProfile = localStorage.getItem("varCadeProfile");
     
-    if (savedHandle) {
-      if (savedProfile) {
-        setUserProfile(JSON.parse(savedProfile));
-      } else {
-        setUserProfile(prev => ({ ...prev, handle: savedHandle }));
-      }
+    if (savedProfile) {
+      setUserProfile(JSON.parse(savedProfile));
     } else {
-      setShowOnboarding(true);
+      setUserProfile(prev => ({ ...prev, handle: ghostHandle }));
+    }
+    
+    if (localStorage.getItem("var_cade_rewarded_today") === "true") {
+      setHasVotedToday(true);
     }
 
     const savedVoted = localStorage.getItem("varCadeVoted");
@@ -98,7 +100,7 @@ export default function Home() {
       supabase.removeChannel(memesSub);
       supabase.removeChannel(predsSub);
     };
-  }, []);
+  }, [isReady, ghostHandle]);
 
   const handleVote = async (id: string, type: "golazo" | "redCard") => {
     if (votedMemeIds.includes(id)) return;
@@ -174,41 +176,28 @@ export default function Home() {
   };
 
   const handlePredict = async (teamId: string) => {
-    // 1. Strict local lock check
-    const hasAwardedKarma = localStorage.getItem("var_cade_rewarded_today") === "true";
+    // Check if the user is clicking the exact same team they already predicted; if so, return early.
+    if (userProfile.currentPrediction === teamId) return;
+
+    // Determine the karma payload
+    const karmaChange = hasVotedToday ? 0 : 10;
     
-    if (!hasAwardedKarma) {
-      // 3. IF UNLOCKED (First pick): update prediction AND increment karma
-      const newKarma = userProfile.memeKarma + 10;
-      const updatedProfile = { ...userProfile, currentPrediction: teamId, memeKarma: newKarma };
-      
-      // Update UI and set lock immediately
-      setUserProfile(updatedProfile);
-      localStorage.setItem("varCadeProfile", JSON.stringify(updatedProfile));
-      localStorage.setItem("var_cade_rewarded_today", "true");
+    setHasVotedToday(true);
+    localStorage.setItem("var_cade_rewarded_today", "true");
 
-      const { error } = await supabase.from('predictions').upsert({
-        handle: updatedProfile.handle,
-        current_prediction: teamId,
-        meme_karma: newKarma,
-      }, { onConflict: 'handle' });
-      
-      if (error) console.error("Failed to update prediction", error);
-    } else {
-      // 4. IF LOCKED (Switching picks): update ONLY the current_prediction
-      const updatedProfile = { ...userProfile, currentPrediction: teamId };
-      
-      // Update UI instantly (no artificial karma inflation)
-      setUserProfile(updatedProfile);
-      localStorage.setItem("varCadeProfile", JSON.stringify(updatedProfile));
+    const newKarma = userProfile.memeKarma + karmaChange;
+    const updatedProfile = { ...userProfile, currentPrediction: teamId, memeKarma: newKarma };
+    
+    setUserProfile(updatedProfile);
+    localStorage.setItem("varCadeProfile", JSON.stringify(updatedProfile));
 
-      // Explicitly omit karma math in the database mutation
-      const { error } = await supabase.from('predictions')
-        .update({ current_prediction: teamId })
-        .eq('handle', updatedProfile.handle);
-        
-      if (error) console.error("Failed to update prediction", error);
-    }
+    const { error } = await supabase.from('predictions').upsert({
+      handle: updatedProfile.handle,
+      current_prediction: teamId,
+      meme_karma: newKarma,
+    }, { onConflict: 'handle' });
+    
+    if (error) console.error("Failed to update prediction", error);
   };
 
   const filteredMemes = memes.filter((m) => {
@@ -219,19 +208,16 @@ export default function Home() {
   const activeTeam = TEAMS.find(t => t.id === activeTeamId);
   const themeClass = activeTeam?.themeColor || "from-dark-bg via-dark-bg to-dark-bg";
 
-  const handleOnboard = (handle: string) => {
-    localStorage.setItem("var_cade_handle", handle);
-    const newProfile = { ...userProfile, handle };
-    setUserProfile(newProfile);
-    localStorage.setItem("varCadeProfile", JSON.stringify(newProfile));
-    setShowOnboarding(false);
-  };
-
-  if (!mounted) return null;
+  if (!mounted || !isReady) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-dark-bg">
+        <div className="animate-spin w-8 h-8 border-4 border-vibrant-teal border-t-transparent rounded-full"></div>
+      </div>
+    );
+  }
 
   return (
     <>
-      {showOnboarding && <OnboardingModal onEnter={handleOnboard} />}
       <div className={`fixed inset-0 -z-10 bg-gradient-to-br transition-all duration-1000 ease-in-out opacity-40 ${themeClass}`} />
       
       <TrendingTicker />
